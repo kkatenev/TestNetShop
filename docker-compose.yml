@@ -1,0 +1,93 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: shop
+      POSTGRES_DB: shop
+    ports:
+      - "5432:5432"
+    volumes:
+      - shop-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop -d shop"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: shop
+      RABBITMQ_DEFAULT_PASS: shop
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: ShopApi/Dockerfile
+    ports:
+      - "5007:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      HttpsRedirection: "false"
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=shop;Username=shop;Password=shop
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Username: shop
+      RabbitMq__Password: shop
+      Cors__Origins__0: http://localhost:8088
+      Cors__Origins__1: http://localhost:5173
+      Jwt__Key: ShopApi-Dev-Secret-Key-At-Least-32-Chars!
+      Jwt__Issuer: ShopApi
+      Jwt__Audience: ShopWeb
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Shop.Worker/Dockerfile
+    environment:
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=shop;Username=shop;Password=shop
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Username: shop
+      RabbitMq__Password: shop
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+  web:
+    build:
+      context: ./Shop.Web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+    ports:
+      - "8088:80"
+    depends_on:
+      - api
+
+volumes:
+  shop-pgdata:

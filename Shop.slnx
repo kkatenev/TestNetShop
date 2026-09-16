@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Shop.Contracts/Shop.Contracts.csproj" />
+  <Project Path="Shop.Data/Shop.Data.csproj" />
+  <Project Path="Shop.Worker/Shop.Worker.csproj" />
+  <Project Path="ShopApi.Tests/ShopApi.Tests.csproj" />
+  <Project Path="ShopApi/ShopApi.csproj" />
+</Solution>
